@@ -1,0 +1,8 @@
+remain_friends_eu_rest_api:
+    resource: "@RemainFriendsEuRestApiBundle/Resources/config/routing.yml"
+    prefix:   /
+
+remain_friends_eu_api:
+    resource: "@RemainFriendsEuApiBundle/Resources/config/routing.yml"
+    prefix:   /
+
