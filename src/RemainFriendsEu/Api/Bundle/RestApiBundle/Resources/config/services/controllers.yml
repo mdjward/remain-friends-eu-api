@@ -1,1 +1,5 @@
 services:
+
+    remain_friends_eu.api.rest_api.controllers.user_activity:
+        class: RemainFriendsEu\Api\Bundle\RestApiBundle\Controller\UserActivityController        
+        arguments: []
