@@ -1,0 +1,458 @@
+<?xml version="1.0"?>
+
+<!--
+    Application build script
+    Author: M.D.Ward <matthew.ward@byng.co>
+    Copyright: Byng Services Ltd (2016)
+-->
+
+<project name="RemainFriends.EU - build" default="build">
+
+    <!-- ### CUSTOM TASK DEFINITIONS ### -->
+
+    <!-- Register the parallel-apply custom task definition -->
+    <taskdef name="parallel-apply" classname="co.byng.antparallelapply.taskdefs.optional.ParallelApply"/>
+
+
+
+    <!-- ### FIXED PROPERTY DEFINITION ### -->
+
+    <!-- Identify src, build and Symfony2-config directories referenced frequently throughout this build -->
+    <property name="BIN_DIR_NAME" value="bin"/>
+    <property name="APP_DIR_NAME" value="app"/>
+    <property name="ETC_DIR_NAME" value="etc"/>
+    <property name="VAR_DIR_NAME" value="var"/>
+    <property name="SRC_DIR_NAME" value="src"/>
+    <property name="TEST_DIR_NAME" value="tests"/>
+    <property name="WEB_DIR_NAME" value="web"/>
+    <property name="COMPOSER_VENDOR_DIR_NAME" value="${VAR_DIR_NAME}/lib"/>
+    <property name="BUILD_DIR_NAME" value="build"/>
+    <property name="DIST_DIR_NAME" value="dist"/>
+    <property name="BIN_DIR" value="${basedir}/${BIN_DIR_NAME}"/>
+    <property name="APP_DIR" value="${basedir}/${APP_DIR_NAME}"/>
+    <property name="VAR_DIR" value="${basedir}/${VAR_DIR_NAME}"/>
+    <property name="SRC_DIR" value="${basedir}/${SRC_DIR_NAME}"/>
+    <property name="TEST_DIR" value="${basedir}/${TEST_DIR_NAME}"/>
+    <property name="WEB_DIR" value="${basedir}/${WEB_DIR_NAME}"/>
+    <property name="DIST_DIR" value="${basedir}/${DIST_DIR_NAME}"/>
+    <property name="BUILD_DIR" value="${basedir}/${BUILD_DIR_NAME}"/>
+    <property name="BUILD_LOG_DIR" value="${BUILD_DIR}/logs"/>
+    <property name="BUILD_DOC_DIR" value="${BUILD_DIR}/doc"/>
+    <property name="BUILD_DOC_CODE_API_DIR" value="${BUILD_DOC_DIR}/code-api"/>
+    <property name="BUILD_DOC_REST_API_DIR" value="${BUILD_DOC_DIR}/rest-api"/>
+    <property name="CONFIG_DIR" value="${APP_DIR}/config"/>
+    <property name="CONSOLE" value="${BIN_DIR}/console"/>
+    <property name="PARAMETERS_YML" value="${CONFIG_DIR}/parameters.yml"/>
+    <property name="COMPOSER_VENDOR_DIR" value="${basedir}/${COMPOSER_VENDOR_DIR_NAME}"/>
+
+
+
+    <!-- ### CONDITIONAL PROPERTY DEFINITION ### -->
+
+    <condition property="DROP_DB" value="true" else="false">
+        <and>
+            <isset property="DROP_DB"/>
+            <istrue value="${DROP_DB}"/>
+        </and>
+    </condition>
+    <condition property="MIGRATE_DB" value="true" else="false">
+        <and>
+            <isset property="MIGRATE_DB"/>
+            <istrue value="${MIGRATE_DB}"/>
+        </and>
+    </condition>
+    <condition property="RUN_TESTS" value="true" else="false">
+        <or>
+            <or>
+                <not><isset property="SKIP_TESTS"/></not>
+                <isfalse value="${SKIP_TESTS}"/>
+            </or>
+            <and>
+                <isset property="RUN_TESTS"/>
+                <istrue value="${RUN_TESTS}"/>
+            </and>
+        </or>
+    </condition>
+    <condition property="PHP_EXECUTABLE" else="php">
+        <isset property="PHP_EXECUTABLE"/>
+    </condition>
+    <condition property="PHPUNIT_EXECUTABLE" else="phpunit">
+        <isset property="PHPUNIT_EXECUTABLE"/>
+    </condition>
+    <condition property="APIGEN_EXECUTABLE" else="apigen">
+        <isset property="APIGEN_EXECUTABLE"/>
+    </condition>
+    <condition property="APIDOC_EXECUTABLE" else="apidoc">
+        <isset property="APIDOC_EXECUTABLE"/>
+    </condition>
+    <condition property="CODESNIFFER_EXECUTABLE" else="phpcs">
+        <isset property="CODESNIFFER_EXECUTABLE"/>
+    </condition>
+    <condition property="CPD_EXECUTABLE" else="phpcpd">
+        <isset property="CPD_EXECUTABLE"/>
+    </condition>
+    <condition property="MD_EXECUTABLE" else="phpmd">
+        <isset property="MD_EXECUTABLE"/>
+    </condition>
+    <condition property="LOC_EXECUTABLE" else="phploc">
+        <isset property="LOC_EXECUTABLE"/>
+    </condition>
+    <condition property="DEPEND_EXECUTABLE" else="pdepend">
+        <isset property="DEPEND_EXECUTABLE"/>
+    </condition>
+    <condition property="COMPOSER_EXECUTABLE" else="composer">
+        <isset property="COMPOSER_EXECUTABLE"/>
+    </condition>
+    <condition property="PHPUNIT_MEMORY_LIMIT" else="256M">
+        <and>
+            <isset property="PHPUNIT_MEMORY_LIMIT"/>
+            <matches pattern="^[0-9]+(M|G)$" string="${PHPUNIT_MEMORY_LIMIT}"/>
+        </and>
+    </condition>
+    <condition property="ENVIRONMENT" else="prod">
+        <isset property="ENVIRONMENT"/>
+    </condition>
+    <condition property="SYMFONY2_ENVIRONMENT_PHPUNIT" else="test">
+        <isset property="SYMFONY2_ENVIRONMENT_PHPUNIT"/>
+    </condition>
+    <condition property="IS_DEV_ENVIRONMENT" value="true" else="false">
+        <equals arg1="${ENVIRONMENT}" arg2="dev"/>
+    </condition>
+    <condition property="IS_NON_DEV_ENVIRONMENT" value="true" else="false">
+        <isfalse value="${IS_DEV_ENVIRONMENT}"/>
+    </condition>
+    <condition property="FRONT_CONTROLLER" else="app">
+        <and>
+            <isset property="FRONT_CONTROLLER"/>
+            <available file="${WEB_DIR}/${FRONT_CONTROLLER}.php"/>
+        </and>
+    </condition>
+    <condition property="DIST_FILENAME" else="affinity-research-input-tool">
+        <isset property="DIST_FILENAME"/>
+    </condition>
+
+
+
+    <!-- ### CLEAN TARGETS ### -->
+
+    <!-- Cleans the project, deleting the build directory and everything contained within -->
+    <target name="clean" depends="clean-dist,clean-build-artefacts,clean-cache,clean-web,clean-composer"/>
+
+    <!-- Cleans the dist directory only -->
+    <target name="clean-dist">
+        <delete dir="${DIST_DIR}" failonerror="false"/>
+    </target>
+
+    <!-- Cleans the build logs only -->
+    <target name="clean-build-artefacts">
+        <delete dir="${BUILD_DIR}" failonerror="false"/>
+    </target>
+
+    <!-- Cleans target web directories only -->
+    <target name="clean-web">
+        <delete dir="${WEB_DIR}/bundles" failonerror="false"/>
+        <delete dir="${WEB_DIR}/css" failonerror="false"/>
+        <delete dir="${WEB_DIR}/js" failonerror="false"/>
+    </target>
+    
+    <!-- Cleans the composer vendors directory for a full reinstall -->
+    <target name="clean-composer">
+        <delete dir="${COMPOSER_VENDOR_DIR}" failonerror="false"/>
+    </target>
+    
+    <!-- Forceably cleans the Symfony2 cache -->
+    <target name="clean-cache">
+        <delete dir="${VAR_DIR}/cache/${ENVIRONMENT}"/>
+    </target>
+
+    <target name="clean-doctrine-migrations" if="${DROP_DB}">
+        <exec executable="${PHP_EXECUTABLE}" failonerror="true">
+            <env key="SYMFONY_ENV" value="${ENVIRONMENT}"/>
+            <arg value="${CONSOLE}"/>
+            <arg value="doctrine:schema:drop"/>
+            <arg value="--full-database"/>
+            <arg value="--force"/>
+        </exec>
+    </target>
+
+
+
+    <!-- ### BUILD TARGETS ### -->
+
+    <!-- Builds the project, invoking tasks defined below as dependencies -->
+    <!--
+        15/02/2016:
+        Removed "check-code-metrics" dependency because it sporadically causes the build to fail.
+        Once diagnosed and fixed it should be added back in as it provides useful metrics.
+    -->
+    <target name="build" depends="prepare,check-syntax,test,install-composer,doc">
+        <echo>BUILD SUCCESSFUL</echo>
+    </target>
+    
+    <!-- Prepares the project by creating the build directory (and all those underneath) if they do not already exist -->
+    <target name="prepare">
+        <mkdir dir="${BUILD_DIR}"/>
+        <mkdir dir="${BUILD_DIR}/coverage"/>
+        <mkdir dir="${BUILD_DIR}/depend"/>
+        <mkdir dir="${BUILD_LOG_DIR}"/>
+        <mkdir dir="${BUILD_DOC_DIR}"/>
+        <mkdir dir="${BUILD_DOC_CODE_API_DIR}"/>
+        <mkdir dir="${BUILD_DOC_REST_API_DIR}"/>
+        <mkdir dir="${DIST_DIR}"/>
+    </target>
+
+
+    <!-- ### DIST TARGETS ### -->
+
+    <!-- Creates a project distributable -->
+    <target name="dist" depends="build">
+
+        <property name="DIST_FILE" value="${DIST_DIR}/${DIST_FILENAME}.tar.bz2"/>
+
+        <echo>Building distributable ${DIST_FILE} using front controller ${FRONT_CONTROLLER}</echo>
+        <tar destfile="${DIST_FILE}" includes="**" compression="bzip2" longfile="gnu">
+            <tarfileset dir="${basedir}" defaultexcludes="false">
+                <include name="${BIN_DIR_NAME}/**"/>
+                <include name="${APP_DIR_NAME}/config/**"/>
+                <include name="${APP_DIR_NAME}/DoctrineMigrations/**"/>
+                <include name="${APP_DIR_NAME}/App*.php"/>
+                <include name="${APP_DIR_NAME}/autoload.php"/>
+                <include name="${APP_DIR_NAME}/check.php"/>
+                <include name="${APP_DIR_NAME}/console"/>
+                <include name="${VAR_DIR_NAME}/bootstrap.php.cache"/>
+                <include name="${VAR_DIR_NAME}/SymfonyRequirements.php"/>
+                <include name="${APP_DIR_NAME}/Resources/*.twig"/>
+                <include name="${APP_DIR_NAME}/Resources/**/*.twig"/>
+                <include name="${ETC_DIR_NAME}/**"/>
+                <exclude name="${ETC_DIR_NAME}/parameters/parameters.yml"/>
+                <include name="${SRC_DIR_NAME}/**"/>
+                <exclude name="${SRC_DIR_NAME}/.htaccess"/>
+                <exclude name="${SRC_DIR_NAME}/**/.htaccess"/>
+                <exclude name="${SRC_DIR_NAME}/**/*Bundle/Tests"/>
+                <exclude name="${SRC_DIR_NAME}/**/*Bundle/Tests/**"/>
+                <exclude name="${SRC_DIR_NAME}/**/*Bundle/Tests"/>
+                <exclude name="${SRC_DIR_NAME}/**/*Bundle/Tests/**"/>
+                <exclude name="${SRC_DIR_NAME}/**/*Bundle/Resources/public/**"/>
+                <exclude name="${SRC_DIR_NAME}/**/*Test.php"/>
+                <exclude name="${SRC_DIR_NAME}/**/Test*/*TestCase.php"/>
+                <exclude name="${TEST_DIR_NAME}/**"/>
+                <include name="${COMPOSER_VENDOR_DIR_NAME}/**"/>
+                <exclude name="${WEB_DIR_NAME}/*.php"/>
+                <include name="${WEB_DIR_NAME}/*/**"/>
+                <include name="${WEB_DIR_NAME}/robots.txt"/>
+                <include name="${WEB_DIR_NAME}/favicon.ico"/>
+                <include name="${WEB_DIR_NAME}/apple-touch-icon.png"/>
+            </tarfileset>
+            <tarfileset dir="${basedir}" defaultexcludes="false">
+                <include name="${WEB_DIR_NAME}/${FRONT_CONTROLLER}.php"/>
+            </tarfileset>
+        </tar>
+    </target>
+
+
+    <!-- ### CHECK TARGETS ### -->
+
+    <!-- Performs a lint (syntax) check on the PHP src code under ${SRC_DIR} -->
+    <target name="check-syntax">
+        <parallel-apply logThreshold="1" threadCount="80" executable="${PHP_EXECUTABLE}" failonerror="true">
+            <arg value="-l"/>
+
+            <fileset dir="${SRC_DIR}">
+                <include name="**/*.php"/>
+            </fileset>
+        </parallel-apply>
+    </target>
+    <!-- Aliasing -->
+    <target name="lint" depends="check-syntax"/>
+
+    <!-- Performs code metric analysis and logs the results -->
+    <target name="check-code-metrics" depends="prepare">
+        <echo>*** Checking code metrics ***</echo>
+        <echo>Invoking PHPCS for code style analysis...</echo>
+        <echo>Invoking PHPCPD for copy-paste detection...</echo>
+        <echo>Invoking PHPMD for mess detection...</echo>
+        <echo>Invoking PHPLOC for code complexity analysis...</echo>
+        <echo>Invoking PDepend for code dependency analysis...</echo>
+        <parallel threadCount="5">
+            <antcall target="check-code-metrics-checkstyle"/>
+            <antcall target="check-code-metrics-copy-paste-detection"/>
+            <antcall target="check-code-metrics-mess-detection"/>
+            <antcall target="check-code-metrics-size-complexity"/>
+        </parallel>
+        <antcall target="check-code-metrics-dependencies"/>
+    </target>
+
+    <!-- Checkstyle analysis -->
+    <target name="check-code-metrics-checkstyle" depends="prepare">
+        <exec executable="${CODESNIFFER_EXECUTABLE}" output="${BUILD_LOG_DIR}/phpcs.out.log" error="${BUILD_LOG_DIR}/phpcs.err.log">
+            <arg value="--report-checkstyle"/>
+            <arg value="--report-file=${BUILD_LOG_DIR}/checkstyle.xml"/>
+            <arg value="--standard=${basedir}/phpcs.xml"/>
+            <arg value="${SRC_DIR}"/>
+        </exec>
+        <echo>Code style analysis complete.</echo>
+    </target>
+
+    <!-- Checkstyle analysis -->
+    <target name="check-code-metrics-copy-paste-detection" depends="prepare">
+        <exec executable="${CPD_EXECUTABLE}" failonerror="false" output="${BUILD_LOG_DIR}/phpcpd.out.log" error="${BUILD_LOG_DIR}/phpcpd.err.log">
+            <arg value="--exclude=Tests"/>
+            <arg value="--log-pmd"/>
+            <arg path="${BUILD_LOG_DIR}/pmd-cpd.xml"/>
+            <arg path="${SRC_DIR}"/>
+        </exec>
+        <echo>Copy-paste detection complete.</echo>
+    </target>
+
+    <target name="check-code-metrics-mess-detection" depends="prepare">
+        <exec executable="${MD_EXECUTABLE}" output="${BUILD_LOG_DIR}/phpmd.out.log" error="${BUILD_LOG_DIR}/phpmd.err.log">
+            <arg path="${SRC_DIR}"/>
+            <arg value="xml"/>
+            <arg path="${basedir}/phpmd.xml"/>
+            <arg value="--reportfile"/>
+            <arg path="${BUILD_LOG_DIR}/pmd.xml"/>
+        </exec>
+        <echo>Mess detection complete.</echo>
+    </target>
+
+    <target name="check-code-metrics-size-complexity" depends="prepare">
+        <exec executable="${LOC_EXECUTABLE}" output="${BUILD_LOG_DIR}/phploc.out.log" error="${BUILD_LOG_DIR}/phploc.err.log">
+            <arg value="--exclude=Tests$"/>
+            <arg value="--log-csv"/>
+            <arg path="${BUILD_LOG_DIR}/phploc.csv"/>
+            <arg path="${SRC_DIR}"/>
+        </exec>
+    </target>
+
+    <target name="check-code-metrics-dependencies" depends="prepare">
+        <exec executable="${DEPEND_EXECUTABLE}" output="${BUILD_LOG_DIR}/pdepend.out.log" error="${BUILD_LOG_DIR}/pdepend.err.log">
+            <arg value="--ignore=*/Bundle/*Bundle/Tests/*"/>
+            <arg value="--jdepend-xml=${BUILD_LOG_DIR}/jdepend.xml"/>
+            <arg value="--jdepend-chart=${BUILD_DIR}/depend/dependencies.svg" />
+            <arg value="--overview-pyramid=${BUILD_DIR}/depend/overview-pyramid.svg" />
+            <arg path="${SRC_DIR}"/>
+        </exec>
+    </target>
+
+
+
+    <!-- ### INSTALL TARGETS ### -->
+
+    <target name="install-composer-test">
+        <echo>Installing test dependencies with Composer...</echo>
+        <exec executable="${COMPOSER_EXECUTABLE}" dir="${basedir}" failonerror="true">
+            <env key="SYMFONY_ENV" value="${SYMFONY2_ENVIRONMENT_PHPUNIT}"/>
+            <arg value="--prefer-dist"/>
+            <arg value="-q"/>
+            <arg value="--no-interaction"/>
+            <arg value="install"/>
+        </exec>
+        <echo level="info">Test dependencies installed.</echo>
+    </target>
+
+    <target name="install-composer-dev" if="${IS_DEV_ENVIRONMENT}">
+        <echo>Running composer dev install for non-production environment ${ENVIRONMENT}</echo>
+        <exec executable="${COMPOSER_EXECUTABLE}" dir="${basedir}" failonerror="true">
+            <env key="SYMFONY_ENV" value="${ENVIRONMENT}"/>
+            <arg value="--dev"/>
+            <arg value="--prefer-source"/>
+            <arg value="--no-progress"/>
+            <arg value="-vvv"/>
+            <arg value="install"/>
+        </exec>
+        <echo level="info">Composer ${ENVIRONMENT} dependencies installed.</echo>
+    </target>
+
+    <target name="install-composer-non-dev" if="${IS_NON_DEV_ENVIRONMENT}">
+        <echo>Running composer install for non-dev environment ${ENVIRONMENT}</echo>
+        <exec executable="${COMPOSER_EXECUTABLE}" dir="${basedir}" failonerror="true">
+            <env key="SYMFONY_ENV" value="${ENVIRONMENT}"/>
+            <arg value="--no-dev"/>
+            <arg value="--prefer-dist"/>
+            <arg value="--no-progress"/>
+            <arg value="--optimize-autoloader"/>
+            <arg value="-v"/>
+            <arg value="install"/>
+        </exec>
+        <echo level="info">Composer dependencies installed.</echo>
+    </target>
+
+    <!-- Runs a composer install as a pre-requisite for unit testing -->
+    <target name="install-composer" depends="install-composer-non-dev,install-composer-dev"/>
+
+
+
+    <!-- ### UPDATE TARGETS ### -->
+
+    <target name="update" depends="update-composer"/>
+
+    <!-- Runs a composer update to update dependencies -->
+    <target name="update-composer">
+        <echo>Running composer update...</echo>
+        <exec executable="${COMPOSER_EXECUTABLE}" failonerror="true">
+            <env key="SYMFONY_ENV" value="${ENVIRONMENT}"/>
+            <arg value="update"/>
+            <arg value="-o"/>
+            <arg value="-vvv"/>
+            <arg value="--no-interaction"/>
+        </exec>
+    </target>
+    <target name="composer-update" depends="update-composer"/>
+
+
+
+    <!-- ### TEST TARGETS ### -->
+
+    <!-- Carries out PHPUnit testing as per the phpunit.xml.dist config file under /app and logs JUnit-style XML -->
+    <target name="test" depends="prepare" if="${RUN_TESTS}">
+        <antcall target="clean-composer"/>
+        <antcall target="install-composer-test"/>
+
+        <antcall target="test-phpunit"/>
+
+        <echo>Purging test dependencies.</echo>
+        <antcall target="clean-composer"/>
+        <antcall target="clean-cache"/>
+    </target>
+    
+    <target name="test-phpunit">
+        <echo>*** Running PHPUnit ***</echo>
+        <echo level="info">Memory limit: ${PHPUNIT_MEMORY_LIMIT}</echo>
+        <echo level="info"/>
+        <exec executable="${PHPUNIT_EXECUTABLE}" failonerror="true">
+            <env key="SYMFONY_ENV" value="${SYMFONY2_ENVIRONMENT_PHPUNIT}"/>
+            <arg value="-dmemory_limit=${PHPUNIT_MEMORY_LIMIT}"/>
+            <arg value="-c"/>
+            <arg path="${basedir}"/>
+            <arg value="--colors=never"/>
+        </exec>
+        <echo level="info"/>
+        <echo level="info">PHPUnit testing successful.</echo>
+    </target>
+
+
+
+    <!-- ### DOC TARGETS ### -->
+
+    <!-- Created API documentation for code and the RESTful web service -->
+    <target name="doc">
+        <echo>*** Generating API documentation ***</echo>
+        <echo>Invoking APIGen to generate PHP code API documentation...</echo>
+        
+        <antcall target="doc-code-api"/>
+    </target>
+
+    <!-- Creates code API documentation -->
+    <target name="doc-code-api" depends="prepare">
+        <exec executable="${APIGEN_EXECUTABLE}" failonerror="true" output="${BUILD_LOG_DIR}/apidoc.log" error="${BUILD_LOG_DIR}/apidoc.log">
+            <arg value="generate"/>
+            <arg value="-s"/>
+            <arg value="${SRC_DIR}"/>
+            <arg value="-d"/>
+            <arg value="${BUILD_DOC_CODE_API_DIR}"/>
+            <arg value="--quiet"/>
+        </exec>
+        <echo>PHP code API documentation has been generated.</echo>
+    </target>
+
+</project>
