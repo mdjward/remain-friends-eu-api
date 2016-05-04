@@ -41,7 +41,8 @@
     "config": {
         "platform": {
             "php": "5.6.20"
-        }
+        },
+        "vendor-dir": "var/lib"
     },
     "extra": {
         "symfony-app-dir": "app",
