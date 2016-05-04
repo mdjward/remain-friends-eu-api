@@ -185,7 +185,7 @@
         Removed "check-code-metrics" dependency because it sporadically causes the build to fail.
         Once diagnosed and fixed it should be added back in as it provides useful metrics.
     -->
-    <target name="build" depends="prepare,check-syntax,test,install-composer,doc">
+    <target name="build" depends="prepare,check-syntax,check-code-metrics,test,install-composer,doc">
         <echo>BUILD SUCCESSFUL</echo>
     </target>
     
