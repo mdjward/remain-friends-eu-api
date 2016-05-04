@@ -127,7 +127,7 @@
             <available file="${WEB_DIR}/${FRONT_CONTROLLER}.php"/>
         </and>
     </condition>
-    <condition property="DIST_FILENAME" else="affinity-research-input-tool">
+    <condition property="DIST_FILENAME" else="remain-friends-eu-api">
         <isset property="DIST_FILENAME"/>
     </condition>
 
